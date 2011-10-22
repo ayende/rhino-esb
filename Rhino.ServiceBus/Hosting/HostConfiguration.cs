@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Castle.Core.Configuration;
+using Rhino.ServiceBus.Config;
 
 namespace Rhino.ServiceBus.Hosting
 {
@@ -7,29 +7,38 @@ namespace Rhino.ServiceBus.Hosting
     {
         private string Name { get; set; }
         private string Endpoint { get; set; }
+        private bool Transactional { get; set; }
         private int ThreadCount { get; set; }
         private int NumberOfRetries { get; set; }
         private string LoadBalancerEndpoint { get; set; }
+        private string SecurityKey { get; set; }
         protected string LogEndpoint { get; set; }
-        private IDictionary<string, string> Messages { get; set; }
+        private string Path { get; set; }
+        private bool EnablePerformanceCounter { get; set; }
+        private IDictionary<string, HostConfigMessageEndpoint> Messages { get; set; }
 
         public HostConfiguration()
         {
             ThreadCount = 1;
             NumberOfRetries = 5;
-            Messages = new Dictionary<string, string>();
+            Messages = new Dictionary<string, HostConfigMessageEndpoint>();
         }
 
         public HostConfiguration Bus(string endpoint)
         {
-            Endpoint = endpoint;
-            return this;
+            return Bus(endpoint, null);
         }
 
         public HostConfiguration Bus(string endpoint, string name)
         {
-            Bus(endpoint);
+            return Bus(endpoint, name, false);
+        }
+
+        public HostConfiguration Bus(string endpoint, string name, bool transactional)
+        {
+            Endpoint = endpoint;
             Name = name;
+            Transactional = transactional;
             return this;
         }
 
@@ -57,40 +66,75 @@ namespace Rhino.ServiceBus.Hosting
             return this;
         }
 
-        public HostConfiguration Receive(string messageName, string endpoint)
+        public HostConfiguration Security(string key)
         {
-            Messages.Add(messageName, endpoint);
+            SecurityKey = key;
             return this;
         }
 
-        public IConfiguration ToIConfiguration()
+        public HostConfiguration StoragePath(string path)
         {
-            var config = new MutableConfiguration("rhino.esb");
+            Path = path;
+            return this;
+        }
 
-            var busConfig = config.CreateChild("bus")
-                .Attribute("endpoint", Endpoint)
-                .Attribute("threadCount", ThreadCount.ToString())
-                .Attribute("numberOfRetries", NumberOfRetries.ToString());
+        public HostConfiguration EnablePerformanceCounters()
+        {
+            EnablePerformanceCounter = true;
+            return this;
+        }
 
-            if (string.IsNullOrEmpty(Name) == false)
-                busConfig.Attribute("name", Name);
+        public HostConfiguration Receive(string messageName, string endpoint)
+        {
+            return Receive(messageName, endpoint, false);
+        }
 
-            if (string.IsNullOrEmpty(LoadBalancerEndpoint) == false)
-                busConfig.Attribute("loadBalancerEndpoint", LoadBalancerEndpoint);
+        public HostConfiguration Receive(string messageName, string endpoint, bool transactional)
+        {
+            Messages.Add(messageName, new HostConfigMessageEndpoint
+            {
+              Endpoint = endpoint,
+              Transactional = transactional,
+            });
+            return this;
+        }
 
-            if (string.IsNullOrEmpty(LogEndpoint) == false)
-                busConfig.Attribute("logEndpoint", LogEndpoint);
-
-            var messagesConfig = config.CreateChild("messages");
-
+        public virtual BusConfigurationSection ToBusConfiguration()
+        {
+            var config = new BusConfigurationSection();
+            config.Bus.Endpoint = Endpoint;
+            config.Bus.ThreadCount = ThreadCount;
+            config.Bus.NumberOfRetries = NumberOfRetries;
+            config.Bus.Name = Name;
+            config.Bus.LoadBalancerEndpoint = LoadBalancerEndpoint;
+            config.Bus.LogEndpoint = LogEndpoint;
+            config.Bus.Transactional = Transactional.ToString();
+            config.Bus.Path = Path;
+            config.Bus.EnablePerformanceCounters = EnablePerformanceCounter;
+            config.Security.Key = SecurityKey;
             foreach (var message in Messages)
             {
-                messagesConfig.CreateChild("add")
-                    .Attribute("name", message.Key)
-                    .Attribute("endpoint", message.Value);
+              config.MessageOwners.Add(new MessageOwnerElement
+              {
+                Name = message.Key,
+                Endpoint = message.Value.Endpoint,
+                Transactional = message.Value.Transactional.ToString()
+              });
             }
-
             return config;
+        }
+
+
+        private class HostConfigMessageEndpoint {
+          public string Endpoint {
+            get;
+            set;
+          }
+
+          public bool Transactional {
+            get;
+            set;
+          }
         }
     }
 }

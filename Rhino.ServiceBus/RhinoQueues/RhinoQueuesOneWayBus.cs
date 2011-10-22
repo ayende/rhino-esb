@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Transactions;
 using Rhino.Queues;
 using Rhino.ServiceBus.Impl;
@@ -11,9 +10,9 @@ namespace Rhino.ServiceBus.RhinoQueues
     public class RhinoQueuesOneWayBus : RhinoQueuesTransport,IOnewayBus
     {
         private MessageOwnersSelector messageOwners;
-        public static readonly Uri NullEndpoint = new Uri("null://nowhere:24689/middle");
-        public RhinoQueuesOneWayBus(MessageOwner[] messageOwners, IMessageSerializer messageSerializer,IMessageBuilder<MessagePayload> messageBuilder)
-            : base(NullEndpoint, new EndpointRouter(), messageSerializer, 1, Path.Combine(Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory), "one_way.esent"), IsolationLevel.ReadCommitted,5,messageBuilder)
+        public static readonly Uri NullEndpoint = new Uri(string.Format("null://nowhere:{0}/middle", ANY_AVAILABLE_PORT));
+        public RhinoQueuesOneWayBus(MessageOwner[] messageOwners, IMessageSerializer messageSerializer, string path, bool enablePerformanceCounters, IMessageBuilder<MessagePayload> messageBuilder)
+            : base(NullEndpoint, new EndpointRouter(), messageSerializer, 1, path, IsolationLevel.ReadCommitted, 5, enablePerformanceCounters, messageBuilder)
 
         {
             this.messageOwners = new MessageOwnersSelector(messageOwners, new EndpointRouter());

@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using Castle.MicroKernel.Registration;
 using Castle.Windsor;
 using Castle.Windsor.Configuration.Interpreters;
 using Rhino.ServiceBus.Impl;
@@ -19,13 +20,13 @@ namespace Rhino.ServiceBus.Tests
             Module2.Stopped = Module2.Started = false;
 
             container = new WindsorContainer(new XmlInterpreter());
-            container.Kernel.AddFacility("rhino.esb", 
-                new RhinoServiceBusFacility()
-                    .AddMessageModule<Module1>()
-                    .AddMessageModule<Module2>()
-                );
+            new RhinoServiceBusConfiguration()
+                .UseCastleWindsor(container)
+                .AddMessageModule<Module1>()
+                .AddMessageModule<Module2>()
+                .Configure();
 
-            container.AddComponent<BadHandler>();
+            container.Register(Component.For<BadHandler>());
         }
 
         [Fact]
@@ -49,12 +50,13 @@ namespace Rhino.ServiceBus.Tests
 			Module2.Stopped = Module2.Started = false;
 
 			container = new WindsorContainer(new XmlInterpreter());
-			var facility = new RhinoServiceBusFacility()
+			new RhinoServiceBusConfiguration()
 				.AddMessageModule<Module1>()
 				.AddMessageModule<Module2>()
-				.DisableQueueAutoCreation();
+				.DisableQueueAutoCreation()
+                .UseCastleWindsor(container)
+                .Configure();
 
-			container.Kernel.AddFacility("rhino.esb", facility);
 
 			var serviceBus = (DefaultServiceBus)container.Resolve<IServiceBus>();
 			Assert.IsType<Module1>(serviceBus.Modules[0]);
@@ -130,20 +132,44 @@ namespace Rhino.ServiceBus.Tests
     		Assert.True(Module1.Completion);
     	}
 
+        [Fact]
+        public void Can_register_to_get_transaction_commit_notification()
+        {
+            using (var serviceBus = (DefaultServiceBus)container.Resolve<IServiceBus>())
+            {
+                serviceBus.Start();
+                Module1.TransactionCommitResetEvent = new ManualResetEvent(false);
+                Module1.TransactionCommit = false;
+
+                serviceBus.Send(serviceBus.Endpoint, "transaction");
+                Module1.TransactionCommitResetEvent.WaitOne(TimeSpan.FromSeconds(30), false);
+            }
+            Assert.True(Module1.TransactionCommit);
+        }
+
     	public class Module1 : IMessageModule
         {
             public static Exception Exception;
             public static ManualResetEvent ErrorResetEvent;
             public static ManualResetEvent CompletionResetEvent;
+            public static ManualResetEvent TransactionCommitResetEvent;
             public static bool Completion = true;
+            public static bool TransactionCommit;
 
-			public void Init(ITransport transport, IServiceBus bus)
+    	    public void Init(ITransport transport, IServiceBus bus)
             {
+                transport.BeforeMessageTransactionCommit += Transport_BeforeMessageTransactionCommit;
                 transport.MessageProcessingFailure+=Transport_OnMessageProcessingFailure;
                 transport.MessageProcessingCompleted+=Transport_OnMessageProcessingCompleted;
             }
 
-            private static void Transport_OnMessageProcessingCompleted(CurrentMessageInformation t, Exception e)
+    	    private void Transport_BeforeMessageTransactionCommit(CurrentMessageInformation obj)
+    	    {
+                TransactionCommit = true;
+                TransactionCommitResetEvent.Set();
+    	    }
+
+    	    private static void Transport_OnMessageProcessingCompleted(CurrentMessageInformation t, Exception e)
             {
             	Completion = true;
             	CompletionResetEvent.Set();

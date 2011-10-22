@@ -1,3 +1,4 @@
+using Castle.MicroKernel.Registration;
 using Castle.Windsor;
 using Castle.Windsor.Configuration.Interpreters;
 using Rhino.ServiceBus.Impl;
@@ -12,9 +13,11 @@ namespace Rhino.ServiceBus.Tests.Bugs
         public Resolving_consumer_from_container()
         {
             container = new WindsorContainer(new XmlInterpreter());
-            container.Kernel.AddFacility("rhino.esb", new RhinoServiceBusFacility());
+            new RhinoServiceBusConfiguration()
+                .UseCastleWindsor(container)
+                .Configure();
 
-            container.AddComponent<SendByMessageOwner.TestHandler>();
+            container.Register(Component.For<SendByMessageOwner.TestHandler>());
         }
 
         [Fact]

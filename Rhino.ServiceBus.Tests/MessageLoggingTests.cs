@@ -1,5 +1,6 @@
 using System;
 using System.Transactions;
+using Castle.MicroKernel.Registration;
 using Castle.Windsor;
 using Castle.Windsor.Configuration.Interpreters;
 using Rhino.Mocks;
@@ -20,12 +21,18 @@ namespace Rhino.ServiceBus.Tests
         public MessageLoggingTests()
         {
             container = new WindsorContainer(new XmlInterpreter());
-            container.Kernel.AddFacility("rhino.esb", new RhinoServiceBusFacility());
-            container.AddComponent<MessageLoggingModule>();
+            new RhinoServiceBusConfiguration()
+                .UseCastleWindsor(container)
+                .Configure();
+            container.Register(Component.For<MessageLoggingModule>());
 
             messageSerializer = container.Resolve<IMessageSerializer>();
 
+            var innerTransport = container.Resolve<ITransport>();
+            innerTransport.Start();
             transport = MockRepository.GenerateStub<ITransport>();
+            transport.Stub(t => t.Send(null, null)).IgnoreArguments()
+                .Do((Delegates.Action<Endpoint, object[]>)(innerTransport.Send));
         }
 
         [Fact]
@@ -150,6 +157,12 @@ namespace Rhino.ServiceBus.Tests
             Assert.NotEqual(Guid.Empty, failedMessage.MessageId);
             Assert.Equal("System.IndexOutOfRangeException: Index was outside the bounds of the array.", failedMessage.ErrorText);
             Assert.Equal("tst", failedMessage.Message);
+        }
+
+        public override void Dispose()
+        {
+            base.Dispose();
+            container.Dispose();
         }
     }
 }

@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <metadata xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <id>Rhino.ServiceBus.Autofac</id>
+    <version>0.0.0</version>
+    <authors>Steve Wagner, Corey Kaylor</authors>
+    <owners>Corey Kaylor</owners>
+    <licenseUrl>https://raw.github.com/hibernating-rhinos/rhino-esb/master/license.txt</licenseUrl>
+    <projectUrl>https://github.com/hibernating-rhinos/rhino-esb</projectUrl>
+    <iconUrl>https://github.com/hibernating-rhinos/rhino-esb/wiki/images/rhino-icon.jpg</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Autofac integration with Rhino.ServiceBus</description>
+    <tags>rhino autofac servicebus bus msmq messaging cqrs</tags>
+    <dependencies>
+      <dependency id="Rhino.ServiceBus"/>
+      <dependency id="Autofac" version="2.4.4.705"/>
+      <dependency id="Rhino.Queues"/>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="build\3.5\Rhino.ServiceBus.Autofac.dll" target="lib\3.5" />
+    <file src="build\3.5\Rhino.ServiceBus.Autofac.xml" target="lib\3.5" />
+    <file src="build\3.5\Rhino.ServiceBus.Autofac.pdb" target="lib\3.5" />
+    <file src="build\4.0\Rhino.ServiceBus.Autofac.dll" target="lib\4.0" />
+    <file src="build\4.0\Rhino.ServiceBus.Autofac.xml" target="lib\4.0" />
+    <file src="build\4.0\Rhino.ServiceBus.Autofac.pdb" target="lib\4.0" />
+    <file src="Rhino.ServiceBus.Autofac\**\*.cs" target="src\Rhino.ServiceBus.Autofac" />
+  </files>
+</package>

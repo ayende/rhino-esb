@@ -3,8 +3,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using Castle.MicroKernel.Registration;
 using Castle.Windsor;
 using Castle.Windsor.Configuration.Interpreters;
+using Rhino.ServiceBus.Castle;
 using Rhino.ServiceBus.Hosting;
 using Rhino.ServiceBus.Impl;
 using Xunit;
@@ -24,31 +26,32 @@ namespace Rhino.ServiceBus.Tests.Hosting
 
         public Can_host_in_another_app_domain()
         {
-            container = new WindsorContainer(new XmlInterpreter(
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AnotherBus.config")
-                ));
-            container.Kernel.AddFacility("rhino.esb", new RhinoServiceBusFacility());
+            container = new WindsorContainer();
+            new RhinoServiceBusConfiguration()
+                .UseCastleWindsor(container)
+                .UseStandaloneConfigurationFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AnotherBus.config"))
+                .Configure();
         }
 
-		[Fact]
-		public void Components_are_registered_using_name_only()
-		{
-			var windsorContainer = new WindsorContainer();
-			new SimpleBootStrapper().InitializeContainer(windsorContainer);
-			var handler = windsorContainer.Kernel.GetHandler(typeof(TestRemoteHandler).Name);
-			Assert.NotNull(handler);
-		}
+        [Fact]
+        public void Components_are_registered_using_name_only()
+        {
+            var windsorContainer = new WindsorContainer(new XmlInterpreter());
+            new SimpleBootStrapper(windsorContainer).InitializeContainer();
+            var handler = windsorContainer.Kernel.GetHandler(typeof(TestRemoteHandler).Name);
+            Assert.NotNull(handler);
+        }
 
         [Fact]
         public void And_accept_messages_from_there()
         {
             host.Start();
 
-            using(var bus = container.Resolve<IStartableServiceBus>())
+            using (var bus = container.Resolve<IStartableServiceBus>())
             {
                 bus.Start();
-                
-                using(bus.AddInstanceSubscription(this))
+
+                using (bus.AddInstanceSubscription(this))
                 {
                     bus.Send(new Uri("msmq://localhost/test_queue").ToEndpoint(), new StringMsg
                     {
@@ -75,16 +78,19 @@ namespace Rhino.ServiceBus.Tests.Hosting
         }
     }
 
-	public class SimpleBootStrapper : AbstractBootStrapper
-	{
-		
-	}
+    public class SimpleBootStrapper : CastleBootStrapper
+    {
+        public SimpleBootStrapper(IWindsorContainer container) : base(container)
+        {
+            
+        }
+    }
 
-    public class TestBootStrapper : AbstractBootStrapper
+    public class TestBootStrapper : CastleBootStrapper
     {
         protected override void ConfigureContainer()
         {
-            container.AddComponent<TestRemoteHandler>();
+            Container.Register(Component.For<TestRemoteHandler>());
         }
     }
 

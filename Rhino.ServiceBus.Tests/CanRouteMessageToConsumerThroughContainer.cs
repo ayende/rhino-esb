@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using Castle.MicroKernel.Registration;
 using Castle.Windsor;
 using Castle.Windsor.Configuration.Interpreters;
 using Rhino.ServiceBus.Impl;
@@ -15,8 +16,10 @@ namespace Rhino.ServiceBus.Tests
         public CanRouteMessageToConsumerThroughContainer()
         {
             container = new WindsorContainer(new XmlInterpreter());
-            container.Kernel.AddFacility("rhino.esb", new RhinoServiceBusFacility());
-            container.AddComponent<TestConsumer>();
+            container.Register(Component.For<TestConsumer>());
+            new RhinoServiceBusConfiguration()
+                .UseCastleWindsor(container)
+                .Configure();
         }
 
         [Fact]
