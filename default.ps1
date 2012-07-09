@@ -1,5 +1,5 @@
 properties { 
-  $base_dir  = resolve-path .
+  $base_dir = resolve-path .
   $lib_dir = "$base_dir\SharedLibs"
   $build_dir = "$base_dir\build" 
   $buildartifacts_dir = "$build_dir\" 
@@ -8,6 +8,7 @@ properties {
   $tools_dir = "$base_dir\Tools"
   $release_dir = "$base_dir\Release"
   $config = "Debug"
+  $platform = "Any CPU"
   $target_framework_version = "3.5"
 }
 
@@ -18,7 +19,7 @@ include .\psake_ext.ps1
 task default -depends Release
 
 task Clean { 
-  remove-item -force -recurse $buildartifacts_dir -ErrorAction SilentlyContinue 
+  remove-item -force -recurse $buildartifacts_dir -ErrorAction SilentlyContinue
   remove-item -force -recurse $release_dir -ErrorAction SilentlyContinue 
 } 
 
@@ -55,23 +56,31 @@ task Init -depends Clean {
 } 
 
 task Compile -depends Init {
-  $build_properties = "OutDir=$buildartifacts_dir;Configuration=$config"
-  if($target_framework_version -eq '4.0')
-  {
+  $build_properties = "OutDir=$buildartifacts_dir;Configuration=$config;Platform=$platform"
+  if($target_framework_version -eq '4.0') {
     $build_properties = "$build_properties;TargetFrameworkVersion=$target_framework_version"
   }
-  msbuild $sln_file /p:$build_properties
+  msbuild $sln_file /p:$build_properties /t:clean /t:build
+} 
+
+task Compile-UAC -depends Init {
+  $build_properties = "OutDir=$buildartifacts_dir" + "UAC\;Configuration=$config;Platform=$platform;ApplicationManifest=$base_dir\Rhino.ServiceBus.manifest"
+  if($target_framework_version -eq '4.0') {
+    $build_properties = "$build_properties;TargetFrameworkVersion=$target_framework_version"
+  }
+  msbuild $sln_file /p:$build_properties /t:clean /t:build
 } 
 
 task Test -depends Compile {
+  if($platform -ne 'Any CPU') { return }
   $old = pwd
   cd $build_dir
   & $tools_dir\xUnit\xunit.console.exe "$build_dir\Rhino.ServiceBus.Tests.dll"
-  cd $old		
+  cd $old
 }
 
 
-task Release  -depends Test{
+task Release -depends Test, Compile-UAC {
 
 	& $tools_dir\zip.exe -9 -A -j `
 		$release_dir\Rhino.ServiceBus.zip `
@@ -95,6 +104,26 @@ task Release  -depends Test{
     	$build_dir\Rhino.ServiceBus.xml `
     	$build_dir\Wintellect.Threading.dll `
     	$build_dir\Wintellect.Threading.xml `
+    	license.txt `
+		acknowledgements.txt
+	if ($lastExitCode -ne 0) {
+        throw "Error: Failed to execute ZIP command"
+    }
+
+	& $tools_dir\zip.exe -9 -A -j `
+		$release_dir\Rhino.ServiceBus.Host.zip `
+		$build_dir\Rhino.ServiceBus.Host.exe `
+    	$build_dir\Rhino.ServiceBus.Host.xml `
+    	license.txt `
+		acknowledgements.txt
+	if ($lastExitCode -ne 0) {
+        throw "Error: Failed to execute ZIP command"
+    }
+
+	& $tools_dir\zip.exe -9 -A -j `
+		$release_dir\Rhino.ServiceBus.Host.UAC.zip `
+		$build_dir\UAC\Rhino.ServiceBus.Host.exe `
+    	$build_dir\UAC\Rhino.ServiceBus.Host.xml `
     	license.txt `
 		acknowledgements.txt
 	if ($lastExitCode -ne 0) {
